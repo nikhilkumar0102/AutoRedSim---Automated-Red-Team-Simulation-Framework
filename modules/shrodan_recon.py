@@ -1,3 +1,4 @@
+# --- Standard Libraries ---
 import json
 import os
 import csv
@@ -14,6 +15,7 @@ try:
     from rich.panel import Panel
     from rich.progress import track
     from rich import print as rprint
+    from collections import Counter
 except ImportError:
     print("Error: Required Python libraries are not installed.")
     print("Please run: pip install shodan rich requests")
@@ -121,18 +123,38 @@ class ShodanRecon:
         for ip in ips[:10]:  # Limit to 10 IPs for display
             self.console.print(f"- {ip}")
 
+    def display_top_bar(self, items):
+        table = Table(show_header=False, expand=True)
+        table.add_column("Item", style="cyan")
+        table.add_column("Count", style="magenta")
+        for item, count in items:
+            table.add_row(item, str(count))
+        self.console.print(table)
+
     def vulnerability_search(self):
         cve = input("Enter CVE (e.g., CVE-2021-44228): ").upper()
         query = f'vuln:{cve}'
         if not self.confirm_action("vulnerability search"):
             return
         try:
+            rprint(f"[yellow]Attempting vuln search: {query}. If this fails, falling back to CVE in product/version.[/yellow]")
             results = self.api.search(query)
             details = self.get_cve_details(cve)
             self.display_vulnerability_results(results, cve, details)
             self.export_vuln_results(results['matches'], cve, details)
         except shodan.APIError as e:
-            self.console.print(f"[red]Error: {e}[/red]")
+            if "vuln" in str(e).lower():
+                rprint(f"[yellow]Vuln filter not available. Falling back to searching CVE in product/version banners...[/yellow]")
+                fallback_query = f'"{cve}"'
+                try:
+                    results = self.api.search(fallback_query)
+                    details = self.get_cve_details(cve)
+                    self.display_vulnerability_results(results, cve, details, fallback=True)
+                    self.export_vuln_results(results['matches'], cve, details)
+                except shodan.APIError as e2:
+                    self.console.print(f"[red]Fallback search also failed: {e2}[/red]")
+            else:
+                self.console.print(f"[red]Error: {e}[/red]")
 
     def get_cve_details(self, cve):
         rprint("[cyan]Fetching CVE details from NVD...[/cyan]")
@@ -153,9 +175,10 @@ class ShodanRecon:
         except Exception:
             return {'cvss': 'Error', 'severity': 'Error', 'summary': 'Failed to fetch', 'link': ''}
 
-    def display_vulnerability_results(self, results, cve, details):
+    def display_vulnerability_results(self, results, cve, details, fallback=False):
+        search_type = "Fallback" if fallback else "Vuln Filter"
         rprint(Panel(f"CVSS: {details['cvss']} ({details['severity']})\nSummary: {details['summary']}",
-                     title=f"Vulnerability Details for {cve}", border_style="magenta"))
+                     title=f"Vulnerability Details for {cve} ({search_type} Search)", border_style="magenta"))
         table = Table(title=f"Vulnerable Hosts for {cve} (Found: {results['total']})")
         table.add_column("IP")
         table.add_column("Port")
@@ -226,7 +249,7 @@ class ShodanRecon:
             data = self.api.host(target) if '/' not in target else self.api.search(f"net:{target}")
             with open(baseline_file, 'w') as f:
                 json.dump(data, f)
-            rprint("[green]Baseline created for {target}.[/green]")
+            rprint(f"[green]Baseline created for {target}.[/green]")
 
     def detect_changes(self, baseline, current):
         changes = []
