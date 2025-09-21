@@ -1,9 +1,7 @@
 import subprocess
 import os
 from datetime import datetime
-import time
 import sys
-import threading
 
 # For colors
 class Colors:
@@ -12,6 +10,7 @@ class Colors:
     OKGREEN = '\033[92m'
     WARNING = '\033[93m'
     FAIL = '\033[91m'
+    BRIGHT_RED = '\033[1;31m'  # Bright red for exit and back options
     END = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
@@ -22,7 +21,7 @@ BANNER = f"""
     ___            _          ___         ___ _          
    / _ \\          | |         / _ \\       /   | |          
   / /_\\ \\_   _ | |_ ___  / /_\\ \\_ __  / /| | |_ ___ _ __ 
- |  _  | | | | | __/ _ \\|  _  | '_ \\ / /_| | __/ _ \\ '__|
+ |  _  | | | | | | __/ _ \\|  _  | '_ \\ / /_| | __/ _ \\ '__|
  | | | | |_| | | || (_) | | | | | | \\____ | ||  __/ |   
  \\_| |_/\\__,_| \\__\\___/\\_| |_/| |_(_\\___/ \\__\\___|_|   
                                                         
@@ -41,12 +40,30 @@ def check_python3():
         print(f"{Colors.FAIL}[!] Install Python 3 using your package manager (e.g., 'sudo apt install python3' on Debian/Ubuntu).{Colors.END}")
         return False
 
+def check_msf_installed():
+    """Check if msfconsole is installed."""
+    try:
+        subprocess.run(["msfconsole", "--version"], check=True, capture_output=True)
+        return True
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print(f"{Colors.FAIL}[!] Error: 'msfconsole' not found.{Colors.END}")
+        print(f"{Colors.FAIL}[!] Please ensure the Metasploit Framework is installed and in your PATH.{Colors.END}")
+        return False
+
 def confirm_authorization():
     """Prompt user to confirm they have permission to scan."""
     response = input(f"{Colors.WARNING}Do you have explicit authorization to conduct this operation? (yes/no): {Colors.END}").lower()
     if response != "yes":
         print(f"{Colors.FAIL}[!] Mission aborted. Authorization not confirmed.{Colors.END}")
         sys.exit(1)
+
+def confirm_exploit_authorization():
+    """Prompt user to confirm authorization specifically for exploitation."""
+    response = input(f"{Colors.WARNING}Do you have explicit authorization to perform exploitation? (yes/no): {Colors.END}").lower()
+    if response != "yes":
+        print(f"{Colors.FAIL}[!] Exploitation aborted. Authorization not confirmed.{Colors.END}")
+        return False
+    return True
 
 def perform_shodan_recon():
     """Launch Shodan Reconnaissance module."""
@@ -176,22 +193,35 @@ def perform_brute_scan():
     except Exception as e:
         print(f"{Colors.FAIL}[!] An unexpected error occurred: {e}{Colors.END}")
 
-def perform_exploit_scan():
-    """Launch Exploit-Scan """
+def perform_exploit_scan_with_msf():
+    """Launch the msflauncher.py module."""
     try:
-        print(f"\n{Colors.OKGREEN}[*] Launching the Exploit module...{Colors.END}")
-        subprocess_script_path = os.path.join("modules", "exploit_search.py")
-        if not os.path.exists(subprocess_script_path):
-            print(f"{Colors.FAIL}[!] Error: 'expolit.py' not found in 'modules' directory.{Colors.END}")
-            return
-        project_directory = os.getcwd()
-        subprocess.run(["python3", subprocess_script_path], check=True, cwd=project_directory)
-        print(f"\n{Colors.OKGREEN}[*] Exploit Search module finished. Returning to main menu.{Colors.END}")
+        print(f"\n{Colors.OKGREEN}[*] Launching the Metasploit Framework module...{Colors.END}")
+        script_path = os.path.join("modules", "msflauncher.py")
+        subprocess.run(["python3", script_path], check=True)
+        print(f"\n{Colors.OKGREEN}[*] Metasploit module finished. Returning to main menu.{Colors.END}")
+    except FileNotFoundError:
+        print(f"{Colors.FAIL}[!] Error: '{script_path}' not found in the 'modules' directory.{Colors.END}")
     except subprocess.CalledProcessError as e:
-        print(f"{Colors.FAIL}[!] The Exploit search module exited with an error: {e}{Colors.END}")
+        print(f"{Colors.FAIL}[!] The Metasploit module exited with an error: {e}{Colors.END}")
     except Exception as e:
         print(f"{Colors.FAIL}[!] An unexpected error occurred: {e}{Colors.END}")
 
+def perform_linpeas_runner():
+    """Launch the LinPEAS Runner module."""
+    try:
+        print(f"\n{Colors.OKGREEN}[*] Launching the LinPEAS Runner module...{Colors.END}")
+        script_path = os.path.join("modules", "postexploit_automator.py")
+        if not os.path.exists(script_path):
+            print(f"{Colors.FAIL}[!] Error: 'postexploit_automator.py' not found in 'modules' directory.{Colors.END}")
+            return
+        project_directory = os.getcwd()
+        subprocess.run(["python3", script_path], check=True, cwd=project_directory)
+        print(f"\n{Colors.OKGREEN}[*] LinPEAS Runner module finished. Returning to post-exploitation menu.{Colors.END}")
+    except subprocess.CalledProcessError as e:
+        print(f"{Colors.FAIL}[!] The LinPEAS Runner module exited with an error: {e}{Colors.END}")
+    except Exception as e:
+        print(f"{Colors.FAIL}[!] An unexpected error occurred: {e}{Colors.END}")
 
 def display_main_menu():
     print(f"\n{Colors.HEADER}--- AutoRedSim Main Menu ---{Colors.END}")
@@ -200,14 +230,14 @@ def display_main_menu():
     print("3. Exploitation")
     print("4. Post-Exploitation")
     print("5. Reporting")
-    print("6. Exit")
+    print(f"{Colors.BRIGHT_RED}6. Exit{Colors.END}")
     return input("Select module: ")
 
 def display_recon_menu():
     print(f"\n{Colors.HEADER}--- Reconnaissance Sub-Menu ---{Colors.END}")
     print("1. Passive Scanning")
     print("2. Active Scanning")
-    print("3. Back to Main Menu")
+    print(f"{Colors.BRIGHT_RED}3. Back to Main Menu{Colors.END}")
     return input("Select scanning type: ")
 
 def display_passive_menu():
@@ -215,7 +245,7 @@ def display_passive_menu():
     print("1. Shodan Reconnaissance")
     print("2. Subdomain Enumeration")
     print("3. DNS Interrogation")
-    print("4. Back to Recon Menu")
+    print(f"{Colors.BRIGHT_RED}4. Back to Recon Menu{Colors.END}")
     return input("Select option: ")
 
 def display_active_menu():
@@ -223,15 +253,27 @@ def display_active_menu():
     print("1. Network Discovery")
     print("2. Web Directory Brute-Forcing")
     print("3. SMB Enumeration")
-    print("4. Back to Recon Menu")
+    print(f"{Colors.BRIGHT_RED}4. Back to Recon Menu{Colors.END}")
     return input("Select option: ")
 
 def display_vuln_menu():
     print(f"\n{Colors.HEADER}--- Vulnerability Assessment Sub-Menu ---{Colors.END}")
     print("1. Web Vulnerability Scanning")
-    print("2. Credential Weackness Scanning")
-    print("3. Explot Search ")
-    print("4. Back to Main Menu")
+    print("2. Credential Weakness Scanning")
+    print("3. Exploit Search")
+    print(f"{Colors.BRIGHT_RED}4. Back to Main Menu{Colors.END}")
+    return input("Select option: ")
+
+def display_exploit_menu():
+    print(f"\n{Colors.HEADER}--- Exploitation Sub-Menu ---{Colors.END}")
+    print("1. Launch msfconsole")
+    print(f"{Colors.BRIGHT_RED}2. Back to Main Menu{Colors.END}")
+    return input("Select option: ")
+
+def display_post_exploit_menu():
+    print(f"\n{Colors.HEADER}--- Post-Exploitation Sub-Menu ---{Colors.END}")
+    print("1. LinPEAS Runner")
+    print(f"{Colors.BRIGHT_RED}2. Back to Main Menu{Colors.END}")
     return input("Select option: ")
 
 def main():
@@ -279,7 +321,7 @@ def main():
                 vuln_choice = display_vuln_menu()
                 if vuln_choice == '1':
                     perform_vuln_scan()
-                elif vuln_choice == '2':  # Fixed: Changed brute_choice to vuln_choice
+                elif vuln_choice == '2':
                     perform_brute_scan()
                 elif vuln_choice == '3':
                     perform_exploit_scan()
@@ -288,9 +330,24 @@ def main():
                 else:
                     print(f"{Colors.FAIL}[!] Invalid option.{Colors.END}")
         elif choice == '3':
-            print(f"\n{Colors.WARNING}Exploitation module coming soon...{Colors.END}")
+            while True:
+                exploit_choice = display_exploit_menu()
+                if exploit_choice == '1':
+                    perform_exploit_scan_with_msf()
+                elif exploit_choice == '2':
+                    break
+                else:
+                    print(f"{Colors.FAIL}[!] Invalid option.{Colors.END}")
         elif choice == '4':
-            print(f"\n{Colors.WARNING}Post-Exploitation module coming soon...{Colors.END}")
+            while True:
+                post_exploit_choice = display_post_exploit_menu()
+                if post_exploit_choice == '1':
+                    confirm_authorization()  # Re-confirm for post-exploitation
+                    perform_linpeas_runner()
+                elif post_exploit_choice == '2':
+                    break
+                else:
+                    print(f"{Colors.FAIL}[!] Invalid option.{Colors.END}")
         elif choice == '5':
             print(f"\n{Colors.WARNING}Reporting module coming soon...{Colors.END}")
         elif choice == '6':
