@@ -69,9 +69,9 @@ def perform_shodan_recon():
     """Launch Shodan Reconnaissance module."""
     try:
         print(f"\n{Colors.OKGREEN}[*] Launching the Shodan Reconnaissance module...{Colors.END}")
-        shodan_script_path = os.path.join("modules", "shodan_recon.py")
+        shodan_script_path = os.path.join("modules", "shrodan_recon.py")
         if not os.path.exists(shodan_script_path):
-            print(f"{Colors.FAIL}[!] Error: 'shodan_recon.py' not found in 'modules' directory.{Colors.END}")
+            print(f"{Colors.FAIL}[!] Error: 'shordan_recon.py' not found in 'modules' directory.{Colors.END}")
             return
         project_directory = os.getcwd()
         subprocess.run(["python3", shodan_script_path], check=True, cwd=project_directory)
@@ -192,6 +192,34 @@ def perform_brute_scan():
         print(f"{Colors.FAIL}[!] The Brute-Forcing module exited with an error: {e}{Colors.END}")
     except Exception as e:
         print(f"{Colors.FAIL}[!] An unexpected error occurred: {e}{Colors.END}")
+
+def perform_exploit_scan():
+    """Launch Exploit Search module (exploit_search.py)"""
+    subprocess_script_path = os.path.join("modules", "exploit_search.py")
+    try:
+        print(f"\n{Colors.OKGREEN}[*] Searching for Exploits ...{Colors.END}")
+
+        # Check if the script exists before trying to run it
+        if not os.path.exists(subprocess_script_path):
+            print(f"{Colors.FAIL}[!] Error: Exploit search script '{subprocess_script_path}' not found.{Colors.END}")
+            print(f"{Colors.OKGREEN}[*] Returning to main menu.{Colors.END}")
+            return
+
+        # Run the exploit search script
+        project_directory = os.getcwd()
+        subprocess.run(["python3", subprocess_script_path], check=True, cwd=project_directory)
+        print(f"\n{Colors.OKGREEN}[*] Exploit Search Module finished. Returning to main menu.{Colors.END}")
+
+    except FileNotFoundError:
+        # This error is raised if the 'python3' command itself is not found
+        print(f"{Colors.FAIL}[!] Error: 'python3' command not found. Please ensure Python 3 is in your system's PATH.{Colors.END}")
+    except subprocess.CalledProcessError as e:
+        # This error is raised if the script returns a non-zero exit code (an error)
+        print(f"{Colors.FAIL}[!] The Exploit Search module exited with an error: {e}{Colors.END}")
+    except Exception as e:
+        # Catch any other unexpected errors
+        print(f"{Colors.FAIL}[!] An unexpected error occurred: {e}{Colors.END}")
+    
 
 def perform_exploit_scan_with_msf():
     """Launch the msflauncher.py module."""
@@ -358,3 +386,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+                 
